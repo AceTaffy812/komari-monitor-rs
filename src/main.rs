@@ -163,6 +163,7 @@ async fn main() {
 
         basic_info.push(connection_urls.basic_info.clone(), args.ignore_unsafe_cert);
 
+        let mut last_network_refresh = tokio::time::Instant::now();
         loop {
             let start_time = tokio::time::Instant::now();
             sysinfo_sys.refresh_specifics(
@@ -171,13 +172,15 @@ async fn main() {
                     .with_memory(MemoryRefreshKind::everything()),
             );
             networks.refresh(true);
+            let network_interval = last_network_refresh.elapsed();
+            last_network_refresh = tokio::time::Instant::now();
             disks.refresh_specifics(true, DiskRefreshKind::nothing().with_storage());
             let real_time = RealTimeInfo::build(
                 &sysinfo_sys,
                 &networks,
                 &disks,
                 args.fake,
-                args.realtime_info_interval,
+                network_interval,
             );
 
             let json = json::to_string(&real_time);
