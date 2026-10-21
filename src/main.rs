@@ -225,9 +225,11 @@ async fn main() {
         ping_interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
         info!("Real-time WebSocket connected");
+        let mut callback_task_completed = false;
         let connection_result: Result<(), String> = loop {
             tokio::select! {
                 callback_result = &mut callback_task => {
+                    callback_task_completed = true;
                     break match callback_result {
                         Ok(result) => result,
                         Err(e) => Err(format!("WebSocket callback task failed: {e}")),
@@ -286,8 +288,10 @@ async fn main() {
             writer.send(Message::Close(None)).await
         })
         .await;
-        callback_task.abort();
-        let _ = callback_task.await;
+        if !callback_task_completed {
+            callback_task.abort();
+            let _ = callback_task.await;
+        }
 
         let connected_for = connected_at.elapsed();
         let stable = connected_for >= STABLE_CONNECTION_DURATION;

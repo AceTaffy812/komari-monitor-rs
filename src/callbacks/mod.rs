@@ -5,7 +5,7 @@ use crate::command_parser::Args;
 use crate::utils::{ConnectionUrls, connect_ws};
 use futures::stream::{SplitSink, SplitStream};
 use futures::{SinkExt, StreamExt};
-use log::{error, info};
+use log::{debug, error, info};
 use miniserde::{Deserialize, Serialize, json};
 use std::sync::Arc;
 use tokio::net::TcpStream;
@@ -42,8 +42,17 @@ pub async fn handle_callbacks(
         };
         let _ = activity_tx.send(Instant::now());
 
-        let Ok(utf8) = msg.into_text() else {
-            continue;
+        let utf8 = match msg {
+            Message::Pong(_) => {
+                debug!("Received WebSocket pong from main server");
+                continue;
+            }
+            Message::Text(utf8) if utf8.as_str().is_empty() => {
+                debug!("Received empty text message from main server");
+                continue;
+            }
+            Message::Text(utf8) => utf8,
+            _ => continue,
         };
 
         info!("Received message from main server: {}", utf8.as_str());
